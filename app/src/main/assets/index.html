@@ -179,8 +179,8 @@ body.showCost .costOnly{display:revert}
 <body>
 
 <header>
-  <div class="logo">WT</div>
-  <h1>Wael Telecom<small>وائل تيليكوم · المخزون والأسعار</small></h1>
+  <div class="logo" id="brandLogo">WT</div>
+  <h1><span id="brandName">Wael Telecom</span><small><span id="brandSub">وائل تيليكوم</span> · المخزون والأسعار</small></h1>
   <button class="hbtn" id="costToggle" title="إظهار/إخفاء التكلفة والأرباح"></button>
 </header>
 
@@ -251,7 +251,7 @@ body.showCost .costOnly{display:revert}
     </div>
     <div class="panel">
       <h3>ℹ️ حول التطبيق</h3>
-      <p id="aboutInfo">Wael Telecom · نسخة 1.1</p>
+      <p id="aboutInfo"></p>
       <div class="btns"><button class="btn danger" id="wipeBtn">🗑️ مسح كل البيانات</button></div>
     </div>
   </section>
@@ -292,9 +292,16 @@ body.showCost .costOnly{display:revert}
 
 <input type="file" id="photoInput" accept="image/*" hidden>
 <input type="file" id="bcPhotoInput" accept="image/*" capture="environment" hidden>
+<script src="brand.js"></script>
 <script src="zxing.min.js" defer></script>
 <script>
 "use strict";
+/* store branding: overridden per app by brand.js (each store has its own) */
+const BRAND = Object.assign({ id: "wael-telecom", name: "Wael Telecom", sub: "وائل تيليكوم", logo: "WT" }, window.BRAND || {});
+document.title = BRAND.name;
+document.getElementById("brandName").textContent = BRAND.name;
+document.getElementById("brandSub").textContent = BRAND.sub;
+document.getElementById("brandLogo").textContent = BRAND.logo;
 /* ============ helpers ============ */
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
@@ -727,7 +734,7 @@ function renderSettings() {
   $("#defMin").value = S.settings.defMin;
   $$("#dispSeg button").forEach(b => b.classList.toggle("on", b.dataset.v === S.settings.display));
   $("#lastBackup").textContent = S.settings.lastBackup ? "آخر نسخة احتياطية: " + new Date(S.settings.lastBackup).toLocaleString("ar-SY-u-nu-latn") : "لم يتم أخذ نسخة احتياطية بعد";
-  $("#aboutInfo").innerHTML = `Wael Telecom · نسخة 1.1<br><span class="num">${S.items.length}</span> منتج · <span class="num">${S.sales.length}</span> عملية بيع محفوظة`;
+  $("#aboutInfo").innerHTML = `${esc(BRAND.name)} · نسخة 1.2<br><span class="num">${S.items.length}</span> منتج · <span class="num">${S.sales.length}</span> عملية بيع محفوظة`;
 }
 $("#saveRate").onclick = async () => {
   const v = Number(digitsLatin($("#rate").value));
@@ -740,9 +747,9 @@ $("#dispSeg").onclick = async e => { const b = e.target.closest("button"); if (!
 async function buildBackup() {
   const photos = {};
   await DB.tx("photos", "readonly", s => { const r = s.openCursor(); r.onsuccess = () => { const c = r.result; if (c) { photos[c.key] = c.value; c.continue(); } }; });
-  return { app: "wael-telecom", version: 1, exported: new Date().toISOString(), settings: S.settings, items: S.items, sales: S.sales, photos };
+  return { app: BRAND.id, version: 1, exported: new Date().toISOString(), settings: S.settings, items: S.items, sales: S.sales, photos };
 }
-function backupName() { const d = new Date(); return `wael-telecom-backup-${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}.json`; }
+function backupName() { const d = new Date(); return `${BRAND.id}-backup-${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}.json`; }
 function download(blob, name) {
   if (window.AndroidBridge) { // inside the Android app: save to the phone's Downloads folder
     const fr = new FileReader();
@@ -759,14 +766,14 @@ if (navigator.canShare && navigator.canShare({ files: [new File(["x"], "t.json",
   $("#shareBtn").style.display = "";
   $("#shareBtn").onclick = async () => {
     const file = new File([JSON.stringify(await buildBackup())], backupName(), { type: "application/json" });
-    try { await navigator.share({ files: [file], title: "Wael Telecom backup" }); await markBackup(); } catch (e) { if (e.name !== "AbortError") toast("تعذّرت المشاركة"); }
+    try { await navigator.share({ files: [file], title: BRAND.name + " backup" }); await markBackup(); } catch (e) { if (e.name !== "AbortError") toast("تعذّرت المشاركة"); }
   };
 }
 $("#importBtn").onclick = () => $("#importFile").click();
 $("#importFile").onchange = async e => {
   const file = e.target.files[0]; e.target.value = ""; if (!file) return;
   let data; try { data = JSON.parse(await file.text()); } catch { toast("ملف غير صالح"); return; }
-  if (data.app !== "wael-telecom" || !Array.isArray(data.items)) { toast("هذا ليس ملف نسخة احتياطية لـ Wael Telecom"); return; }
+  if (data.app !== BRAND.id || !Array.isArray(data.items)) { toast("هذا ليس ملف نسخة احتياطية لـ " + BRAND.name); return; }
   if (!await confirmBox(`استرجاع النسخة؟<br><span class="num">${data.items.length}</span> منتج و <span class="num">${(data.sales || []).length}</span> عملية بيع.<br><small>سيتم استبدال كل البيانات الحالية على هذا الهاتف.</small>`, "استرجاع", true)) return;
   await Promise.all(["items", "sales", "photos"].map(s => DB.clear(s)));
   await DB.tx(["items", "sales", "photos"], "readwrite", ([it, sa, ph]) => {
@@ -782,7 +789,7 @@ $("#csvBtn").onclick = () => {
   const q = v => `"${String(v ?? "").replace(/"/g, '""')}"`;
   const rows = S.items.map(i => [i.name, i.barcode ? "\t" + i.barcode : "", i.category, i.cur, i.price, i.cost, i.qty, i.minQty,
     toUSD(i.price, i.cur)?.toFixed(2) ?? "", toSYP(i.price, i.cur) !== null ? Math.round(toSYP(i.price, i.cur)) : "", i.note].map(q).join(","));
-  download(new Blob(["﻿" + [head.map(q).join(","), ...rows].join("\r\n")], { type: "text/csv;charset=utf-8" }), "wael-telecom-inventory.csv");
+  download(new Blob(["﻿" + [head.map(q).join(","), ...rows].join("\r\n")], { type: "text/csv;charset=utf-8" }), BRAND.id + "-inventory.csv");
   if (!window.AndroidBridge) toast("تم تصدير المخزون ✓");
 };
 $("#wipeBtn").onclick = async () => {
@@ -866,7 +873,7 @@ async function openScanner(cb) {
     loop();
   } catch (e) {
     console.warn(e);
-    scanError(e && e.name === "NotAllowedError" ? "تم رفض إذن الكاميرا. اسمح للتطبيق باستخدام الكاميرا (الإعدادات ← التطبيقات ← Wael Telecom ← الأذونات)، أو استخدم «تصوير الباركود»." : "تعذّر تشغيل الكاميرا (" + (e && e.name || "خطأ") + ") — استخدم «تصوير الباركود» أو اكتب الرقم يدوياً.");
+    scanError(e && e.name === "NotAllowedError" ? "تم رفض إذن الكاميرا. اسمح للتطبيق باستخدام الكاميرا (الإعدادات ← التطبيقات ← " + BRAND.name + " ← الأذونات)، أو استخدم «تصوير الباركود»." : "تعذّر تشغيل الكاميرا (" + (e && e.name || "خطأ") + ") — استخدم «تصوير الباركود» أو اكتب الرقم يدوياً.");
   }
 }
 function setupTorch() {

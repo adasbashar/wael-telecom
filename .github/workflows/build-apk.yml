@@ -23,20 +23,21 @@ jobs:
         with:
           gradle-version: "8.7"
 
-      - name: Build signed release APK
+      - name: Build signed release APKs (Wael Telecom + Sham Telecom)
         run: gradle assembleRelease --no-daemon 2>&1 | tee build.log
 
       - name: Collect APK
         run: |
           mkdir -p out
-          cp app/build/outputs/apk/release/app-release.apk out/WaelTelecom.apk
+          cp app/build/outputs/apk/wael/release/app-wael-release.apk out/WaelTelecom.apk
+          cp app/build/outputs/apk/sham/release/app-sham-release.apk out/ShamTelecom.apk
           ls -la out
 
       - name: Upload APK (Actions → this run → Artifacts)
         uses: actions/upload-artifact@v4
         with:
-          name: WaelTelecom-apk
-          path: out/WaelTelecom.apk
+          name: store-apks
+          path: out/*.apk
 
       - name: Publish APK to the "apk" branch
         run: |
@@ -44,7 +45,7 @@ jobs:
           git init -q -b apk
           git config user.name "github-actions"
           git config user.email "actions@github.com"
-          git add WaelTelecom.apk
+          git add *.apk
           git commit -q -m "APK from ${GITHUB_SHA::7}"
           git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" apk
 
