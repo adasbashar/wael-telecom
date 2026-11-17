@@ -1,0 +1,60 @@
+name: Build APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.7"
+
+      - name: Build signed release APK
+        run: gradle assembleRelease --no-daemon 2>&1 | tee build.log
+
+      - name: Collect APK
+        run: |
+          mkdir -p out
+          cp app/build/outputs/apk/release/app-release.apk out/WaelTelecom.apk
+          ls -la out
+
+      - name: Upload APK (Actions → this run → Artifacts)
+        uses: actions/upload-artifact@v4
+        with:
+          name: WaelTelecom-apk
+          path: out/WaelTelecom.apk
+
+      - name: Publish APK to the "apk" branch
+        run: |
+          cd out
+          git init -q -b apk
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add WaelTelecom.apk
+          git commit -q -m "APK from ${GITHUB_SHA::7}"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" apk
+
+      - name: Publish build log on failure
+        if: failure()
+        run: |
+          mkdir -p logout && cp build.log logout/ 2>/dev/null || echo "no log" > logout/build.log
+          cd logout
+          git init -q -b build-log
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add . && git commit -q -m "failed build log ${GITHUB_SHA::7}"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" build-log
