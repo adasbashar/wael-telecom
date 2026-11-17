@@ -251,7 +251,7 @@ body.showCost .costOnly{display:revert}
     </div>
     <div class="panel">
       <h3>ℹ️ حول التطبيق</h3>
-      <p id="aboutInfo">Wael Telecom · نسخة 1.0</p>
+      <p id="aboutInfo">Wael Telecom · نسخة 1.1</p>
       <div class="btns"><button class="btn danger" id="wipeBtn">🗑️ مسح كل البيانات</button></div>
     </div>
   </section>
@@ -727,7 +727,7 @@ function renderSettings() {
   $("#defMin").value = S.settings.defMin;
   $$("#dispSeg button").forEach(b => b.classList.toggle("on", b.dataset.v === S.settings.display));
   $("#lastBackup").textContent = S.settings.lastBackup ? "آخر نسخة احتياطية: " + new Date(S.settings.lastBackup).toLocaleString("ar-SY-u-nu-latn") : "لم يتم أخذ نسخة احتياطية بعد";
-  $("#aboutInfo").innerHTML = `Wael Telecom · نسخة 1.0<br><span class="num">${S.items.length}</span> منتج · <span class="num">${S.sales.length}</span> عملية بيع محفوظة`;
+  $("#aboutInfo").innerHTML = `Wael Telecom · نسخة 1.1<br><span class="num">${S.items.length}</span> منتج · <span class="num">${S.sales.length}</span> عملية بيع محفوظة`;
 }
 $("#saveRate").onclick = async () => {
   const v = Number(digitsLatin($("#rate").value));
@@ -803,41 +803,70 @@ async function openScanner(cb) {
   SC.cb = cb || lookupCode; SC.busy = false;
   $("#scanner").classList.add("on"); $("#scanErr").style.display = "none"; $("#scanMsg").textContent = "وجّه الكاميرا نحو الباركود"; $("#manualCode").value = "";
   $("#torchBtn").style.display = "none";
-  if (!navigator.mediaDevices?.getUserMedia) { scanError("المتصفح لا يدعم الكاميرا هنا. افتح التطبيق عبر رابط https في Chrome، أو اكتب الرقم يدوياً."); return; }
+  if (!navigator.mediaDevices?.getUserMedia) { scanError("الكاميرا المباشرة غير متاحة هنا — اضغط «تصوير الباركود» بالأسفل، أو اكتب الرقم يدوياً."); return; }
   const video = $("#video");
-  const constraints = { video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false };
   try {
-    let native = false;
+    try {
+      SC.stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } } });
+    } catch (e) {
+      if (e && e.name === "NotAllowedError") throw e;
+      SC.stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: true }); // simplest fallback
+    }
+    video.srcObject = SC.stream;
+    try { await video.play(); } catch {}
+    setupTorch();
+    // continuous autofocus where supported (helps a lot with small barcodes)
+    try { const t = SC.stream.getVideoTracks()[0]; const c = t.getCapabilities?.() || {};
+      if (c.focusMode && c.focusMode.includes("continuous")) await t.applyConstraints({ advanced: [{ focusMode: "continuous" }] }); } catch {}
+
+    // native detector (may silently return nothing on some phones, so ZXing always runs too)
+    SC.det = null;
     if ("BarcodeDetector" in window) {
       try {
         const fmts = await BarcodeDetector.getSupportedFormats();
         const want = ["ean_13", "ean_8", "upc_a", "upc_e", "code_128", "code_39", "code_93", "itf", "codabar", "qr_code", "data_matrix"].filter(f => fmts.includes(f));
-        if (want.length) { SC.det = new BarcodeDetector({ formats: want }); native = true; }
+        if (want.length) SC.det = new BarcodeDetector({ formats: want });
       } catch {}
     }
-    if (native) {
-      SC.stream = await navigator.mediaDevices.getUserMedia(constraints);
-      video.srcObject = SC.stream; await video.play();
-      setupTorch();
-      const loop = async () => {
-        if (!SC.stream) return;
-        try { if (video.readyState >= 2) { const r = await SC.det.detect(video); if (r.length) onCode(r[0].rawValue); } } catch {}
-        SC.timer = setTimeout(loop, 120);
-      };
-      loop();
-    } else {
-      if (!window.ZXing) { scanError("مكتبة المسح لم تُحمّل. تأكد من الاتصال بالإنترنت أول مرة، أو اكتب الرقم يدوياً."); return; }
-      const hints = new Map();
-      const F = ZXing.BarcodeFormat;
-      hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [F.EAN_13, F.EAN_8, F.UPC_A, F.UPC_E, F.CODE_128, F.CODE_39, F.ITF, F.CODABAR, F.QR_CODE]);
+    SC.zr = null;
+    if (window.ZXing) {
+      const F = ZXing.BarcodeFormat, hints = new Map();
+      hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [F.EAN_13, F.EAN_8, F.UPC_A, F.UPC_E, F.CODE_128, F.CODE_39, F.CODE_93, F.ITF, F.CODABAR, F.QR_CODE, F.DATA_MATRIX]);
       hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
-      SC.zx = new ZXing.BrowserMultiFormatReader(hints, 150);
-      await SC.zx.decodeFromConstraints(constraints, video, (res) => { if (res) onCode(res.getText()); });
-      SC.stream = video.srcObject; setupTorch();
+      SC.zr = new ZXing.MultiFormatReader(); SC.zr.setHints(hints);
     }
+    if (!SC.det && !SC.zr) { scanError("مكتبة المسح لم تُحمّل — استخدم «تصوير الباركود» أو اكتب الرقم يدوياً."); return; }
+    SC.canvas = SC.canvas || document.createElement("canvas");
+    SC.frame = 0;
+    const loop = async () => {
+      if (!SC.stream || SC.busy) return;
+      try {
+        if (video.readyState >= 2 && video.videoWidth) {
+          SC.frame++;
+          // 1) native detector on the full frame
+          if (SC.det) { const r = await SC.det.detect(video); if (r.length) { onCode(r[0].rawValue); return; } }
+          // 2) ZXing on the centre strip (where the frame guide is); every 3rd frame try the whole image
+          if (SC.zr) {
+            const vw = video.videoWidth, vh = video.videoHeight, full = SC.frame % 3 === 0;
+            const cw = full ? vw : Math.round(vw * .85), ch = full ? vh : Math.round(vh * .5);
+            const sc = Math.min(1, 1280 / cw);
+            const cv = SC.canvas; cv.width = Math.round(cw * sc); cv.height = Math.round(ch * sc);
+            const ctx = cv.getContext("2d", { willReadFrequently: true });
+            ctx.drawImage(video, (vw - cw) / 2, (vh - ch) / 2, cw, ch, 0, 0, cv.width, cv.height);
+            try {
+              const lum = new ZXing.HTMLCanvasElementLuminanceSource(cv);
+              const res = SC.zr.decode(new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(lum)));
+              if (res) { onCode(res.getText()); return; }
+            } catch {}
+          }
+        }
+      } catch {}
+      SC.timer = setTimeout(loop, 60);
+    };
+    loop();
   } catch (e) {
     console.warn(e);
-    scanError(e && e.name === "NotAllowedError" ? "تم رفض إذن الكاميرا. اسمح للمتصفح باستخدام الكاميرا، أو استخدم «تصوير الباركود»." : "الكاميرا المباشرة غير متاحة هنا — اضغط «تصوير الباركود» بالأسفل، أو اكتب الرقم يدوياً.");
+    scanError(e && e.name === "NotAllowedError" ? "تم رفض إذن الكاميرا. اسمح للتطبيق باستخدام الكاميرا (الإعدادات ← التطبيقات ← Wael Telecom ← الأذونات)، أو استخدم «تصوير الباركود»." : "تعذّر تشغيل الكاميرا (" + (e && e.name || "خطأ") + ") — استخدم «تصوير الباركود» أو اكتب الرقم يدوياً.");
   }
 }
 function setupTorch() {
@@ -850,8 +879,6 @@ $("#torchBtn").onclick = async () => { try { const t = SC.stream.getVideoTracks(
 function scanError(m) { $("#scanErr").textContent = m; $("#scanErr").style.display = ""; $("#scanMsg").textContent = ""; }
 function stopScanner() {
   clearTimeout(SC.timer);
-  try { SC.zx && SC.zx.reset(); } catch {}
-  SC.zx = null;
   if (SC.stream) SC.stream.getTracks().forEach(t => t.stop());
   SC.stream = null; $("#video").srcObject = null;
   $("#scanner").classList.remove("on");
