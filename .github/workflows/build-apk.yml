@@ -1,4 +1,4 @@
-name: Build APK
+name: Build apps (Android + Windows)
 
 on:
   push:
@@ -59,3 +59,56 @@ jobs:
           git config user.email "actions@github.com"
           git add . && git commit -q -m "failed build log ${GITHUB_SHA::7}"
           git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" build-log
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "C:\Program Files (x86)\Inno Setup 6\ISCC.exe")) { choco install innosetup -y --no-progress }
+
+      - name: Build Wael Telecom + Sham Telecom for Windows
+        shell: pwsh
+        run: |
+          ./windows/build.ps1 -Store wael *>&1 | Tee-Object -FilePath build-win.log
+          ./windows/build.ps1 -Store sham *>&1 | Tee-Object -FilePath build-win.log -Append
+
+      - name: Package
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force out | Out-Null
+          Copy-Item windows\out\*.exe out\
+          Compress-Archive -Path windows\dist\wael\* -DestinationPath out\WaelTelecom-Portable.zip
+          Compress-Archive -Path windows\dist\sham\* -DestinationPath out\ShamTelecom-Portable.zip
+          Get-ChildItem out | Select-Object Name, Length
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-apps
+          path: out/*
+
+      - name: Publish to the "windows" branch
+        shell: bash
+        run: |
+          cd out
+          git init -q -b windows
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add .
+          git commit -q -m "Windows build from ${GITHUB_SHA::7}"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" windows
+
+      - name: Publish build log on failure
+        if: failure()
+        shell: bash
+        run: |
+          mkdir -p logout && (cp build-win.log logout/ 2>/dev/null || echo "no log" > logout/build-win.log)
+          cd logout
+          git init -q -b build-log-windows
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add . && git commit -q -m "failed windows build log ${GITHUB_SHA::7}"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" build-log-windows

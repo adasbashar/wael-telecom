@@ -4,3 +4,7 @@ app/build/
 local.properties
 *.iml
 .idea/
+windows/bin/
+windows/obj/
+windows/dist/
+windows/out/

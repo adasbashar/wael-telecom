@@ -172,6 +172,16 @@ nav .scan .circle svg{width:28px;height:28px}
 #toast{position:fixed;left:50%;bottom:calc(96px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(20px);background:#e4efe8;color:#0b1310;font-weight:600;
   padding:10px 16px;border-radius:12px;font-size:14px;opacity:0;pointer-events:none;transition:.25s;z-index:80;max-width:90vw;text-align:center}
 #toast.on{opacity:1;transform:translateX(-50%)}
+/* laptop / wide screens */
+@media (min-width:900px){
+  main{max-width:920px;margin:0 auto}
+  .list{display:grid;grid-template-columns:1fr 1fr}
+  nav{max-width:920px;margin:0 auto;border:1px solid var(--line);border-bottom:0;border-radius:18px 18px 0 0}
+  .fab{inset-inline-start:calc(50% - 440px);bottom:112px}
+  .overlay{align-items:center}
+  .sheet{border-radius:20px;border:1px solid var(--line)}
+  .item:hover,.sale:hover{border-color:#2f5a43}
+}
 .costOnly{display:none}
 body.showCost .costOnly{display:revert}
 </style>
@@ -191,7 +201,7 @@ body.showCost .costOnly{display:revert}
     <div class="search">
       <div class="box">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-        <input id="q" type="search" placeholder="ابحث بالاسم أو الباركود…" autocomplete="off" enterkeyhint="search">
+        <input id="q" type="search" placeholder="ابحث بالاسم أو الباركود… (أو امسح بجهاز الباركود)" autocomplete="off" enterkeyhint="search">
       </div>
       <button class="iconbtn primary" id="scanFromSearch" aria-label="مسح باركود">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M7 8v8M10 8v8M13 8v8M17 8v8"/></svg>
@@ -734,7 +744,7 @@ function renderSettings() {
   $("#defMin").value = S.settings.defMin;
   $$("#dispSeg button").forEach(b => b.classList.toggle("on", b.dataset.v === S.settings.display));
   $("#lastBackup").textContent = S.settings.lastBackup ? "آخر نسخة احتياطية: " + new Date(S.settings.lastBackup).toLocaleString("ar-SY-u-nu-latn") : "لم يتم أخذ نسخة احتياطية بعد";
-  $("#aboutInfo").innerHTML = `${esc(BRAND.name)} · نسخة 1.2<br><span class="num">${S.items.length}</span> منتج · <span class="num">${S.sales.length}</span> عملية بيع محفوظة`;
+  $("#aboutInfo").innerHTML = `${esc(BRAND.name)} · نسخة 1.3<br><span class="num">${S.items.length}</span> منتج · <span class="num">${S.sales.length}</span> عملية بيع محفوظة`;
 }
 $("#saveRate").onclick = async () => {
   const v = Number(digitsLatin($("#rate").value));
@@ -964,6 +974,24 @@ document.addEventListener("keydown", e => {
 });
 window.addEventListener("pagehide", stopScanner);
 document.addEventListener("visibilitychange", () => { if (document.hidden && SC.stream) stopScanner(); });
+
+/* USB / Bluetooth barcode scanner gun: it "types" the code very fast and presses Enter.
+   Works from any screen, as long as the cursor is not inside a text box. */
+const KB = { buf: "", t: 0 };
+document.addEventListener("keydown", e => {
+  const tag = (e.target.tagName || "").toLowerCase();
+  if (tag === "input" || tag === "textarea" || tag === "select") return;
+  if ($("#scanner").classList.contains("on") || $("#dlg").classList.contains("on")) return;
+  const now = Date.now();
+  if (now - KB.t > 100) KB.buf = "";
+  KB.t = now;
+  if (e.key === "Enter") {
+    const code = digitsLatin(KB.buf); KB.buf = "";
+    if (code.length >= 4) { e.preventDefault(); if ($("#ov").classList.contains("on")) closeSheet(); beep(); lookupCode(code); }
+    return;
+  }
+  if (e.key && e.key.length === 1) KB.buf += e.key;
+});
 
 /* Android back button: close whatever is open, else go back to inventory, else let the app exit */
 window.__back = function () {
