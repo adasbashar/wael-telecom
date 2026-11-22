@@ -15,7 +15,8 @@ try {
   }
   if (-not (Test-Path $iscc)) { throw "Inno Setup not available" }
 
-  foreach ($s in @("wael","sham")) { & .\windows\build.ps1 -Store $s }
+  $root = (Get-Location).Path
+  foreach ($s in @("wael","sham")) { & "$PSScriptRoot\build.ps1" -Store $s; Set-Location $root }
 
   New-Item -ItemType Directory -Force out | Out-Null
   Copy-Item windows\out\*.exe out\
