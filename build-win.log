@@ -1,0 +1,58 @@
+**********************
+PowerShell transcript start
+Start time: 20261122140247
+Username: runnervmbpeip\runneradmin
+RunAs User: runnervmbpeip\runneradmin
+Configuration Name: 
+Machine: runnervmbpeip (Microsoft Windows NT 10.0.26100.0)
+Host Application: C:\Program Files\PowerShell\7\pwsh.dll -command . 'D:\a\_temp\c53df52d-ae0e-4d41-a39e-94d090a2be1f.ps1'
+Process ID: 4704
+PSVersion: 7.6.10
+PSEdition: Core
+GitCommitId: 7.6.10
+OS: Microsoft Windows 10.0.26100
+Platform: Win32NT
+PSCompatibleVersions: 1.0, 2.0, 3.0, 4.0, 5.0, 5.1, 6.0, 7.0
+PSRemotingProtocolVersion: 2.4
+SerializationVersion: 1.1.0.1
+WSManStackVersion: 3.0
+**********************
+Transcript started, output file is build-win.log
+.NET SDK:
+ Version:           11.0.100
+ Commit:            297acf930f
+ Workload version:  11.0.100-manifests.5d612b92
+ MSBuild version:   18.12.2-1.26529.118+297acf930
+
+Runtime Environment:
+ OS Name:     Windows
+
+
+FullName                                                                                    Length
+--------                                                                                    ------
+D:\a\wael-telecom\wael-telecom\windows\dist\wael\app
+D:\a\wael-telecom\wael-telecom\windows\dist\wael\runtimes
+D:\a\wael-telecom\wael-telecom\windows\dist\wael\Microsoft.Web.WebView2.Core.dll            603712
+D:\a\wael-telecom\wael-telecom\windows\dist\wael\Microsoft.Web.WebView2.WinForms.dll        38488
+D:\a\wael-telecom\wael-telecom\windows\dist\wael\Microsoft.Web.WebView2.Wpf.dll             83008
+D:\a\wael-telecom\wael-telecom\windows\dist\wael\WaelTelecom.exe                            53760
+D:\a\wael-telecom\wael-telecom\windows\dist\wael\WaelTelecom.exe.config                     174
+D:\a\wael-telecom\wael-telecom\windows\dist\wael\WebView2Loader.dll                         165968
+D:\a\wael-telecom\wael-telecom\windows\dist\wael\app\brand.js                               106
+D:\a\wael-telecom\wael-telecom\windows\dist\wael\app\icon-192.png                           9817
+D:\a\wael-telecom\wael-telecom\windows\dist\wael\app\index.html                             68942
+D:\a\wael-telecom\wael-telecom\windows\dist\wael\app\zxing.min.js                           362150
+D:\a\wael-telecom\wael-telecom\windows\dist\wael\runtimes\win-x64
+D:\a\wael-telecom\wael-telecom\windows\dist\wael\runtimes\win-x64\native
+D:\a\wael-telecom\wael-telecom\windows\dist\wael\runtimes\win-x64\native\WebView2Loader.dll 165968
+
+
+BUILD FAILED: The term '.\windows\build.ps1' is not recognized as a name of a cmdlet, function, script file, or executable program.
+Check the spelling of the name, or if a path was included, verify that the path is correct and try again.
+at <ScriptBlock>, D:\a\wael-telecom\wael-telecom\windows\ci.ps1: line 18
+at <ScriptBlock>, D:\a\_temp\c53df52d-ae0e-4d41-a39e-94d090a2be1f.ps1: line 2
+at <ScriptBlock>, <No file>: line 1
+**********************
+PowerShell transcript end
+End time: 20261122140303
+**********************
