@@ -65,25 +65,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Inno Setup
-        shell: pwsh
-        run: |
-          if (-not (Test-Path "C:\Program Files (x86)\Inno Setup 6\ISCC.exe")) { choco install innosetup -y --no-progress }
-
       - name: Build Wael Telecom + Sham Telecom for Windows
         shell: pwsh
-        run: |
-          ./windows/build.ps1 -Store wael *>&1 | Tee-Object -FilePath build-win.log
-          ./windows/build.ps1 -Store sham *>&1 | Tee-Object -FilePath build-win.log -Append
-
-      - name: Package
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force out | Out-Null
-          Copy-Item windows\out\*.exe out\
-          Compress-Archive -Path windows\dist\wael\* -DestinationPath out\WaelTelecom-Portable.zip
-          Compress-Archive -Path windows\dist\sham\* -DestinationPath out\ShamTelecom-Portable.zip
-          Get-ChildItem out | Select-Object Name, Length
+        run: ./windows/ci.ps1
 
       - uses: actions/upload-artifact@v4
         with:
